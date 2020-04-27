@@ -10,7 +10,7 @@ class RNN_Decoder(tf.keras.Model):
         self.units = units
         self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
 
-        self.lstm = tf.keras.layers.LSTM(self.units, return_sequences=True, return_state=True, recurrent_initializer='glorot_uniform')
+        self.gru = tf.keras.layers.GRU(self.units, return_sequences=True, return_state=True, recurrent_initializer='glorot_uniform')
 
         self.fc1 = tf.keras.layers.Dense(self.units)
         self.fc2 = tf.keras.layers.Dense(vocab_size)

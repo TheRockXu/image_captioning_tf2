@@ -1,2 +1,4 @@
 train2014/
 annotations/
+checkpoints/
+.idea/

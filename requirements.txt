@@ -1,0 +1,6 @@
+tensorflow
+tensorflow-gpu
+numpy
+pandas
+scikit-learn
+Pillow
