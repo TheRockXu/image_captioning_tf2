@@ -10,14 +10,26 @@ from models.RNN import RNN_Decoder
 from process_image import get_image_captions, get_feature_extraction_model, load_image, cache_image_features
 import time
 
+top_k = 10000
+attention_features_shape = 64
+embedding_dim = 256
+units = 768
+vocab_size = top_k + 1
+BATCH_SIZE = 64
+BUFFER_SIZE = 1000
+
+EPOCHS = 30
+
 def calc_max_length(tensor):
     return max(len(t) for t in tensor)
+
+
 def map_func(img_name, cap):
-    img_tensor = np.load(img_name.decode('utf-8')+'.npy')
+    img_tensor = np.load(img_name.decode('utf-8') + '.npy')
     return img_tensor, cap
 
 
-def get_tokenizer(train_captions, top_k = 5000):
+def get_tokenizer(train_captions, top_k=5000):
     tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=top_k,
                                                       oov_token="<unk>",
                                                       filters='!"#$%&()*+.,-/:;=?@[\]^_`{|}~ ')
@@ -27,13 +39,12 @@ def get_tokenizer(train_captions, top_k = 5000):
 
     return tokenizer
 
+
 def get_cap_vector(train_captions):
-    tokenizer = get_tokenizer(train_captions)
+    tokenizer = get_tokenizer(train_captions, top_k)
     train_seqs = tokenizer.texts_to_sequences(train_captions)
     cap_vector = tf.keras.preprocessing.sequence.pad_sequences(train_seqs, padding='post')
     return cap_vector
-
-
 
 
 def train():
@@ -41,27 +52,18 @@ def train():
     with open(annotation_file, 'r') as f:
         annotations = json.load(f)
 
-    train_captions,img_name_vector = get_image_captions(annotations)
+    train_captions, img_name_vector = get_image_captions(annotations)
     cap_vector = get_cap_vector(train_captions)
     img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector,
                                                                         cap_vector,
                                                                         test_size=0.2,
                                                                         random_state=0)
-    top_k = 5000
-    BATCH_SIZE = 64
-    BUFFER_SIZE = 1000
-    embedding_dim = 256
-    units = 512
-    vocab_size = top_k + 1
+
     num_steps = len(img_name_train) // BATCH_SIZE
-    # Shape of the vector extracted from InceptionV3 is (64, 2048)
-    # These two variables represent that vector shape
-    features_shape = 2048
-    attention_features_shape = 64
 
     dataset = tf.data.Dataset.from_tensor_slices((img_name_train, cap_train))
 
-    # Use map to load the numpy files in parallel
+    # Use map to load the numpy files in prallel
     dataset = dataset.map(lambda item1, item2: tf.numpy_function(
         map_func, [item1, item2], [tf.float32, tf.int32]),
                           num_parallel_calls=tf.data.experimental.AUTOTUNE)
@@ -96,9 +98,10 @@ def train():
         # restoring the latest checkpoint in checkpoint_path
         ckpt.restore(ckpt_manager.latest_checkpoint)
 
-    tokenizer = get_tokenizer(train_captions)
+    tokenizer = get_tokenizer(train_captions, top_k)
 
     loss_plot = []
+
     @tf.function
     def train_step(img_tensor, target):
         loss = 0
@@ -131,7 +134,7 @@ def train():
 
         return loss, total_loss
 
-    EPOCHS = 20
+
 
     for epoch in range(start_epoch, EPOCHS):
         start = time.time()
@@ -154,24 +157,18 @@ def train():
                                             total_loss / num_steps))
         print('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
 
+
 def evaluate(image):
-    top_k = 5000
-    attention_features_shape = 64
-    embedding_dim = 256
-    units = 512
-    vocab_size = top_k + 1
     annotation_file = 'annotations/captions_train2014.json'
     with open(annotation_file, 'r') as f:
         annotations = json.load(f)
 
-    train_captions,img_name_vector = get_image_captions(annotations)
-
-
+    train_captions, img_name_vector = get_image_captions(annotations)
 
     encoder = CNN_Encoder(embedding_dim)
     decoder = RNN_Decoder(embedding_dim, units, vocab_size)
 
-    tokenizer = get_tokenizer(train_captions)
+    tokenizer = get_tokenizer(train_captions, top_k)
     train_seqs = tokenizer.texts_to_sequences(train_captions)
     max_length = calc_max_length(train_seqs)
 
@@ -192,7 +189,7 @@ def evaluate(image):
     for i in range(max_length):
         predictions, hidden, attention_weights = decoder(dec_input, features, hidden)
 
-        attention_plot[i] = tf.reshape(attention_weights, (-1, )).numpy()
+        attention_plot[i] = tf.reshape(attention_weights, (-1,)).numpy()
 
         predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
         result.append(tokenizer.index_word[predicted_id])
@@ -204,8 +201,6 @@ def evaluate(image):
 
     attention_plot = attention_plot[:len(result), :]
     return result, attention_plot
-
-
 
 
 if __name__ == '__main__':

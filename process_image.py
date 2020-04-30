@@ -8,13 +8,13 @@ from sklearn.utils import shuffle
 def load_image(image_path):
     img = tf.io.read_file(image_path)
     img = tf.image.decode_jpeg(img, channels=3)
-    img = tf.image.resize(img, (299, 299))
-    img = tf.keras.applications.inception_v3.preprocess_input(img)
+    img = tf.image.resize(img, (224, 224))
+    img = tf.keras.applications.vgg19.preprocess_input(img)
     return img, image_path
 
 def cache_images(img_name_vector, model):
     """
-    Cache images with Inception V3
+    Cache images with  VG19
     :return:
     """
     # Get unique images
@@ -52,7 +52,7 @@ def get_image_captions(annotations):
 
 
 def get_feature_extraction_model():
-    image_model = tf.keras.applications.InceptionV3(include_top=False,
+    image_model = tf.keras.applications.VGG19(include_top=False,
                                                     weights='imagenet')
     new_input = image_model.input
     hidden_layer = image_model.layers[-1].output
